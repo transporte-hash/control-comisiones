@@ -1,5 +1,5 @@
 import streamlit as st
-from st_gsheets_connection import GSheetsConnection  # <--- CORREGIDO: st_gsheets_connection
+from st_gsheets_connection import GSheetsConnection  # <--- CORREGIDO PARA QUE ARRANQUE SIN ERRORES
 import pandas as pd
 from datetime import datetime
 
@@ -14,7 +14,6 @@ st.markdown("<h2 style='text-align: center;'>📝 Registro de Comisiones de Cond
 st.markdown("<p style='text-align: center; color: gray;'>Ingrese los datos del viaje realizado para actualizar la base de datos de forma segura.</p>", unsafe_allow_html=True)
 
 # 2. CONEXIÓN INICIAL NATIVA CON GOOGLE SHEETS
-# Se deja el constructor vacío para que herede directamente la sección [connections.gsheets] de los Secrets
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
@@ -39,17 +38,16 @@ with st.form(key="formulario_viaje", clear_on_submit=True):
 
 # 4. PROCESAMIENTO Y VALIDACIÓN LOGÍSTICA DE DATOS
 if submit_button:
-    # Regla de negocio: No permitir campos vacíos en la base de datos
     if not c_conductor or not c_cedula or not c_destino or not c_contenedor or not c_zorro or not c_viaje:
         st.warning("⚠️ Todos los campos son obligatorios. Por favor, rellene el formulario por completo.")
     else:
         try:
             with st.spinner("Conectando de forma segura con la base de datos corporativa..."):
                 
-                # A. Lectura en tiempo real de la hoja de cálculo (ttl=0 evita datos viejos en caché)
+                # A. Lectura en tiempo real de la hoja de cálculo
                 df_existente = conn.read(ttl=0)
                 
-                # B. Generación de la marca de tiempo y limpieza de textos (Mayúsculas estandarizadas)
+                # B. Generación de la marca de tiempo y limpieza de textos
                 fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 nuevo_registro = pd.DataFrame([{
                     "FECHA": fecha_actual,
