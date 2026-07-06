@@ -1,76 +1,120 @@
 import streamlit as st
+import gspread
+from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime
 
-# Conexión nativa integrada sin paquetes problemáticos externos
-conn = st.connection("gsheets", type="sheets")
-# 1. CONFIGURACIÓN DE LA PÁGINA (Títulos y Diseño Corporativo)
+# ==========================================
+# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS
+# ==========================================
 st.set_page_config(
-    page_title="Registro de Comisiones de Conductores", 
+    page_title="Control de Comisiones - Conductores",
+    page_icon="🚚",
     layout="centered"
 )
 
-# Encabezado con formato HTML limpio para presentación visual
-st.markdown("<h2 style='text-align: center;'>📝 Registro de Comisiones de Conductores</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray;'>Ingrese los datos del viaje realizado para actualizar la base de datos de forma segura.</p>", unsafe_allow_html=True)
+# Estilo corporativo personalizado
+st.markdown("""
+    <style>
+    .main-title {
+        color: #1E3A8A;
+        font-size: 32px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .stButton>button {
+        background-color: #1E3A8A;
+        color: white;
+        font-size: 16px;
+        width: 100%;
+        border-radius: 8px;
+        padding: 10px;
+    }
+    .stButton>button:hover {
+        background-color: #152E72;
+        color: white;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# 2. CONEXIÓN INICIAL NATIVA CON GOOGLE SHEETS
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-except Exception as e:
-    st.error(f"⚠️ Error crítico al inicializar los componentes de conexión: {e}")
+st.markdown('<div class="main-title">🚚 Registro de Comisiones de Conductores</div>', unsafe_allow_html=True)
 
-# 3. INTERFAZ GRÁFICA DEL FORMULARIO (Dos Columnas Simétricas)
-with st.form(key="formulario_viaje", clear_on_submit=True):
-    col1, col2 = st.columns(2)
+# ==========================================
+# 2. CONEXIÓN ROBUSTA A GOOGLE SHEETS
+# ==========================================
+@st.cache_resource
+def conectar_gsheets():
+    # Extrae el diccionario completo de credenciales desde Streamlit Secrets
+    credenciales_dict = st.secrets["connections"]["gsheets"]
     
-    with col1:
-        c_conductor = st.text_input("👤 Nombre Completo del Conductor:")
-        c_cedula = st.text_input("🆔 Número de Cédula:")
-        c_destino = st.text_input("📍 Destino del Viaje:")
-        
-    with col2:
-        c_contenedor = st.text_input("📦 Número de Contenedor:")
-        c_zorro = st.text_input("🚜 Número de Zorro / Placa:")
-        c_viaje = st.text_input("🔢 Número de Viaje:")
+    scope = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    
+    # Autorización con Google utilizando Service Account
+    creds = Credentials.from_service_account_info(credenciales_dict, scopes=scope)
+    cliente = gspread.authorize(creds)
+    
+    # Obtiene la URL de la planilla desde tus secretos y abre la primera pestaña (sheet1)
+    url_planilla = st.secrets["connections"]["gsheets"]["spreadsheet"]
+    sheet = cliente.open_by_url(url_planilla).sheet1
+    return sheet
 
-    # Botón de envío del formulario
-    submit_button = st.form_submit_button(label="Guardar Registro de Viaje")
+# Inicializar conexión a la hoja
+try:
+    hoja = conectar_gsheets()
+except Exception as e:
+    st.error(f"❌ Error crítico de conexión con Google Sheets: {e}")
+    st.stop()
 
-# 4. PROCESAMIENTO Y VALIDACIÓN LOGÍSTICA DE DATOS
-if submit_button:
-    if not c_conductor or not c_cedula or not c_destino or not c_contenedor or not c_zorro or not c_viaje:
-        st.warning("⚠️ Todos los campos son obligatorios. Por favor, rellene el formulario por completo.")
+# ==========================================
+# 3. INTERFAZ DEL FORMULARIO DE REGISTRO
+# ==========================================
+with st.form(key="form_comisiones", clear_on_submit=True):
+    st.subheader("📋 Datos del Viaje")
+    
+    # Campos de entrada solicitados
+    fecha = st.date_input("Fecha del viaje", value=datetime.today())
+    conductor = st.text_input("Nombre completo del Conductor").strip()
+    cedula = st.text_input("Número de Cédula (sin puntos ni comas)").strip()
+    destino = st.text_input("Destino del viaje").strip()
+    contenedor = st.text_input("Número de Contenedor").strip()
+    zorro = st.text_input("Número de Zorro").strip()
+    numero_viaje = st.text_input("Número de Viaje").strip()
+    
+    # Botón de envío
+    boton_guardar = st.form_submit_button(label="💾 Guardar Registro")
+
+# ==========================================
+# 4. LÓGICA DE PROCESAMIENTO Y GUARDADO
+# ==========================================
+if boton_guardar:
+    # Validación básica de campos vacíos
+    if not conductor or not cedula or not destino or not contenedor or not zorro or not numero_viaje:
+        st.warning("⚠️ Por favor, completa todos los campos del formulario antes de guardar.")
     else:
-        try:
-            with st.spinner("Conectando de forma segura con la base de datos corporativa..."):
+        with st.spinner("Subiendo datos a Google Sheets... Por favor espera."):
+            try:
+                # Formateamos la fecha a texto legible (Año-Mes-Día)
+                fecha_texto = fecha.strftime("%Y-%m-%d")
                 
-                # A. Lectura en tiempo real de la hoja de cálculo
-                df_existente = conn.read(ttl=0)
+                # Creamos la fila exactamente en el orden de tus columnas (A hasta G)
+                nueva_fila = [
+                    fecha_texto,   # Columna A: FECHA
+                    conductor,     # Columna B: CONDUCTOR
+                    cedula,        # Columna C: CEDULA
+                    destino,       # Columna D: DESTINO
+                    contenedor,    # Columna E: CONTENEDOR
+                    zorro,         # Columna F: ZORRO
+                    numero_viaje   # Columna G: NUMERO_VIAJE
+                ]
                 
-                # B. Generación de la marca de tiempo y limpieza de textos
-                fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                nuevo_registro = pd.DataFrame([{
-                    "FECHA": fecha_actual,
-                    "CONDUCTOR": c_conductor.strip().upper(),
-                    "CEDULA": c_cedula.strip(),
-                    "DESTINO": c_destino.strip().upper(),
-                    "CONTENEDOR": c_contenedor.strip().upper(),
-                    "ZORRO": c_zorro.strip().upper(),
-                    "NUMERO_VIAJE": c_viaje.strip()
-                }])
+                # Inserción directa al final de la tabla en Google Sheets
+                hoja.append_row(nueva_fila)
                 
-                # C. Combinación de los datos nuevos con el histórico existente
-                if df_existente is not None and not df_existente.empty:
-                    df_actualizado = pd.concat([df_existente, nuevo_registro], ignore_index=True)
-                else:
-                    df_actualizado = nuevo_registro
+                st.success(f"✅ ¡Excelente! El viaje N° {numero_viaje} de {conductor} fue registrado con éxito.")
                 
-                # D. Escritura y actualización final en Google Sheets
-                conn.update(data=df_actualizado)
-                
-                # Notificación de éxito en pantalla
-                st.success("✅ ¡Registro guardado exitosamente en Google Sheets!")
-                
-        except Exception as e:
-            st.error(f"❌ Error de comunicación con la API de Google Sheets: {e}")
+            except Exception as error_guardado:
+                st.error(f"❌ Ocurrió un error al intentar escribir en la planilla: {error_guardado}")
