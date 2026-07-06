@@ -2,8 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Conexión nativa integrada de Streamlit (No requiere instalar librerías extras)
-
+# Conexión nativa integrada sin paquetes problemáticos externos
 conn = st.connection("gsheets", type="sheets")
 # 1. CONFIGURACIÓN DE LA PÁGINA (Títulos y Diseño Corporativo)
 st.set_page_config(
