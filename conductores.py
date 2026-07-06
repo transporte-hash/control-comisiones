@@ -11,7 +11,6 @@ st.markdown("<h2 style='text-align: center;'>📝 Registro de Comisiones de Cond
 st.markdown("<p style='text-align: center; color: gray;'>Ingrese los datos del viaje realizado para actualizar la base de datos de forma segura.</p>", unsafe_allow_html=True)
 
 # 1. ESTABLECER CONEXIÓN SEGURA CON GOOGLE SHEETS
-# Se deja vacío para que Streamlit tome las credenciales directamente de los Secrets de forma nativa
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
@@ -35,14 +34,13 @@ with st.form(key="formulario_viaje", clear_on_submit=True):
 
 # 3. VALIDACIÓN Y PROCESAMIENTO DE DATOS AL DAR CLIC
 if submit_button:
-    # Validar que ningún campo obligatorio se quede vacío
     if not c_conductor or not c_cedula or not c_destino or not c_contenedor or not c_zorro or not c_viaje:
         st.warning("⚠️ Todos los campos son obligatorios. Por favor, rellene el formulario por completo.")
     else:
         try:
             with st.spinner("Guardando de forma segura en la base de datos corporativa..."):
                 
-                # A. Leer los datos existentes de forma limpia (sin parámetros en el método read)
+                # A. Leer los datos existentes (Se pasa vacío para heredar los Secrets de forma nativa)
                 df_existente = conn.read(ttl=0)
                 
                 # B. Preparar la nueva fila con la fecha y hora exacta del registro
@@ -57,8 +55,7 @@ if submit_button:
                     "NUMERO_VIAJE": c_viaje.strip()
                 }])
                 
-                # C. Concatenar los datos nuevos con los existentes respetando las columnas
-                # Si el archivo está vacío, se crea el dataframe desde cero
+                # C. Concatenar respetando el estado de la hoja
                 if df_existente is not None and not df_existente.empty:
                     df_actualizado = pd.concat([df_existente, nuevo_registro], ignore_index=True)
                 else:
