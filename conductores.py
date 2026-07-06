@@ -1,8 +1,10 @@
 import streamlit as st
-from streamlit_gsheets_connection import GSheetsConnection  # <-- Debe quedar exactamente así
 import pandas as pd
 from datetime import datetime
 
+# Conexión nativa integrada de Streamlit (No requiere instalar librerías extras)
+
+conn = st.connection("gsheets", type="sheets")
 # 1. CONFIGURACIÓN DE LA PÁGINA (Títulos y Diseño Corporativo)
 st.set_page_config(
     page_title="Registro de Comisiones de Conductores", 
