@@ -3,20 +3,24 @@ from streamlit_gsheets_connection import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
-# Configuración de la página (Logos y títulos corporativos)
-st.set_page_config(page_title="Registro de Comisiones de Conductores", layout="centered")
+# 1. CONFIGURACIÓN DE LA PÁGINA (Títulos y Diseño Corporativo)
+st.set_page_config(
+    page_title="Registro de Comisiones de Conductores", 
+    layout="centered"
+)
 
-# Encabezado visual
+# Encabezado con formato HTML limpio para presentación visual
 st.markdown("<h2 style='text-align: center;'>📝 Registro de Comisiones de Conductores</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray;'>Ingrese los datos del viaje realizado para actualizar la base de datos de forma segura.</p>", unsafe_allow_html=True)
 
-# 1. ESTABLECER CONEXIÓN SEGURA CON GOOGLE SHEETS
+# 2. CONEXIÓN INICIAL NATIVA CON GOOGLE SHEETS
+# Se deja el constructor vacío para que herede directamente la sección [connections.gsheets] de los Secrets
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
-    st.error(f"Error crítico al inicializar la conexión: {e}")
+    st.error(f"⚠️ Error crítico al inicializar los componentes de conexión: {e}")
 
-# 2. CREACIÓN DEL FORMULARIO EN PANTALLA
+# 3. INTERFAZ GRÁFICA DEL FORMULARIO (Dos Columnas Simétricas)
 with st.form(key="formulario_viaje", clear_on_submit=True):
     col1, col2 = st.columns(2)
     
@@ -30,20 +34,22 @@ with st.form(key="formulario_viaje", clear_on_submit=True):
         c_zorro = st.text_input("🚜 Número de Zorro / Placa:")
         c_viaje = st.text_input("🔢 Número de Viaje:")
 
-    submit_button = st.form_submit_button(label="Guardar Registro")
+    # Botón de envío del formulario
+    submit_button = st.form_submit_button(label="Guardar Registro de Viaje")
 
-# 3. VALIDACIÓN Y PROCESAMIENTO DE DATOS AL DAR CLIC
+# 4. PROCESAMIENTO Y VALIDACIÓN LOGÍSTICA DE DATOS
 if submit_button:
+    # Regla de negocio: No permitir campos vacíos en la base de datos
     if not c_conductor or not c_cedula or not c_destino or not c_contenedor or not c_zorro or not c_viaje:
         st.warning("⚠️ Todos los campos son obligatorios. Por favor, rellene el formulario por completo.")
     else:
         try:
-            with st.spinner("Guardando de forma segura en la base de datos corporativa..."):
+            with st.spinner("Conectando de forma segura con la base de datos corporativa..."):
                 
-                # A. Leer los datos existentes (Se pasa vacío para heredar los Secrets de forma nativa)
+                # A. Lectura en tiempo real de la hoja de cálculo (ttl=0 evita datos viejos en caché)
                 df_existente = conn.read(ttl=0)
                 
-                # B. Preparar la nueva fila con la fecha y hora exacta del registro
+                # B. Generación de la marca de tiempo y limpieza de textos (Mayúsculas estandarizadas)
                 fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 nuevo_registro = pd.DataFrame([{
                     "FECHA": fecha_actual,
@@ -55,16 +61,17 @@ if submit_button:
                     "NUMERO_VIAJE": c_viaje.strip()
                 }])
                 
-                # C. Concatenar respetando el estado de la hoja
+                # C. Combinación de los datos nuevos con el histórico existente
                 if df_existente is not None and not df_existente.empty:
                     df_actualizado = pd.concat([df_existente, nuevo_registro], ignore_index=True)
                 else:
                     df_actualizado = nuevo_registro
                 
-                # D. Escribir la base de datos actualizada de vuelta a Google Sheets
+                # D. Escritura y actualización final en Google Sheets
                 conn.update(data=df_actualizado)
                 
+                # Notificación de éxito en pantalla
                 st.success("✅ ¡Registro guardado exitosamente en Google Sheets!")
                 
         except Exception as e:
-            st.error(f"❌ Error al conectar con Google Sheets: {e}")
+            st.error(f"❌ Error de comunicación con la API de Google Sheets: {e}")
