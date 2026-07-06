@@ -25,7 +25,7 @@ st.write("Ingrese los datos del viaje realizado para actualizar la base de datos
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
     # Leer los datos actuales de la hoja de cálculo
-    df_base_datos = conn.read(ttl="0d")  # ttl="0d" evita que la app guarde datos viejos en caché
+    df_base_datos = conn.read(ttl="0d")  # ttl="0d" evita caché con datos viejos
 except Exception as e:
     st.error(f"❌ Error al conectar con Google Sheets: {e}")
     st.stop()
