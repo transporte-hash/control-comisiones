@@ -1,87 +1,73 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
+from streamlit_gsheets_connection import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
-# Configuración inicial de la página de Streamlit
-st.set_page_config(
-    page_title="Control de Comisiones - Transporte",
-    page_icon="🚛",
-    layout="centered"
-)
+# Configuración de la página (Logos y títulos corporativos)
+st.set_page_config(page_title="Registro de Comisiones de Conductores", layout="centered")
 
-# Mostrar logo de la empresa si existe en el directorio
-try:
-    st.image("logo_empresa.png.png", width=200)
-except:
-    pass
+# Encabezado visual
+st.markdown("<h2 style='text-align: center;'>📝 Registro de Comisiones de Conductores</h2>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray;'>Ingrese los datos del viaje realizado para actualizar la base de datos de forma segura.</p>", unsafe_allow_html=True)
 
-st.title("📋 Registro de Comisiones de Conductores")
-st.write("Ingrese los datos del viaje realizado para actualizar la base de datos de forma segura.")
-
-# ---------------------------------------------------------
-# CONEXIÓN DIRECTA A GOOGLE SHEETS
-# ---------------------------------------------------------
+# 1. ESTABLECER CONEXIÓN SEGURA CON GOOGLE SHEETS
+# Se deja vacío para que Streamlit tome las credenciales directamente de los Secrets de forma nativa
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
-    # Leer los datos actuales de la hoja de cálculo
-    df_base_datos = conn.read(ttl="0d")  # Evita el almacenamiento en caché de datos viejos
 except Exception as e:
-    st.error(f"❌ Error al conectar con Google Sheets: {e}")
-    st.stop()
+    st.error(f"Error crítico al inicializar la conexión: {e}")
 
-# ---------------------------------------------------------
-# FORMULARIO DE ENTRADA DE DATOS
-# ---------------------------------------------------------
+# 2. CREACIÓN DEL FORMULARIO EN PANTALLA
 with st.form(key="formulario_viaje", clear_on_submit=True):
     col1, col2 = st.columns(2)
     
     with col1:
-        c_conductor = st.text_input("👤 Nombre Completo del Conductor:").strip().upper()
-        c_cedula = st.text_input("🪪 Número de Cédula / Identificación:").strip()
-        c_destino = st.text_input("📍 Destino del Viaje:").strip().upper()
+        c_conductor = st.text_input("👤 Nombre Completo del Conductor:")
+        c_cedula = st.text_input("🆔 Número de Cédula:")
+        c_destino = st.text_input("📍 Destino del Viaje:")
         
     with col2:
-        c_contenedor = st.text_input("📦 Número de Contenedor:").strip().upper()
-        c_zorro = st.text_input("🦊 Número de Zorro / Chasis:").strip().upper()
-        numero_viaje = st.number_input("🔢 Número de Viaje del Día:", min_value=1, max_value=20, step=1, value=1)
+        c_contenedor = st.text_input("📦 Número de Contenedor:")
+        c_zorro = st.text_input("🚜 Número de Zorro / Placa:")
+        c_viaje = st.text_input("🔢 Número de Viaje:")
 
-    # Botón de envío del formulario
-    submit_button = st.form_submit_button(label="🚀 Registrar Viaje y Comisión")
+    submit_button = st.form_submit_button(label="Guardar Registro")
 
-# ---------------------------------------------------------
-# VALIDACIÓN Y PROCESAMIENTO DE DATOS
-# ---------------------------------------------------------
+# 3. VALIDACIÓN Y PROCESAMIENTO DE DATOS AL DAR CLIC
 if submit_button:
-    # Validar que los campos obligatorios no estén vacíos
-    if not c_conductor or not c_cedula or not c_destino or not c_contenedor or not c_zorro:
+    # Validar que ningún campo obligatorio se quede vacío
+    if not c_conductor or not c_cedula or not c_destino or not c_contenedor or not c_zorro or not c_viaje:
         st.warning("⚠️ Todos los campos son obligatorios. Por favor, rellene el formulario por completo.")
     else:
         try:
             with st.spinner("Guardando de forma segura en la base de datos corporativa..."):
-                # Generar fecha y hora exacta del registro
-                stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
-                # Crear la nueva fila respetando estrictamente las columnas del Excel
-                nueva_fila = pd.DataFrame([{
-                    "FECHA": str(stamp),
-                    "CONDUCTOR": str(c_conductor),
-                    "CEDULA": str(c_cedula),
-                    "DESTINO": str(c_destino),
-                    "CONTENEDOR": str(c_contenedor),
-                    "ZORRO": str(c_zorro),
-                    "NUMERO_VIAJE": int(numero_viaje)
+                # A. Leer los datos existentes de forma limpia (sin parámetros en el método read)
+                df_existente = conn.read(ttl=0)
+                
+                # B. Preparar la nueva fila con la fecha y hora exacta del registro
+                fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                nuevo_registro = pd.DataFrame([{
+                    "FECHA": fecha_actual,
+                    "CONDUCTOR": c_conductor.strip().upper(),
+                    "CEDULA": c_cedula.strip(),
+                    "DESTINO": c_destino.strip().upper(),
+                    "CONTENEDOR": c_contenedor.strip().upper(),
+                    "ZORRO": c_zorro.strip().upper(),
+                    "NUMERO_VIAJE": c_viaje.strip()
                 }])
                 
-                # Consolidar datos anteriores sin alterar la estructura original
-                df_final = pd.concat([df_base_datos, nueva_fila], ignore_index=True)
+                # C. Concatenar los datos nuevos con los existentes respetando las columnas
+                # Si el archivo está vacío, se crea el dataframe desde cero
+                if df_existente is not None and not df_existente.empty:
+                    df_actualizado = pd.concat([df_existente, nuevo_registro], ignore_index=True)
+                else:
+                    df_actualizado = nuevo_registro
                 
-                # Guardar en la nube de Google Sheets
-                conn.update(data=df_final)
+                # D. Escribir la base de datos actualizada de vuelta a Google Sheets
+                conn.update(data=df_actualizado)
                 
-                st.success(f"✅ ¡Éxito! Viaje guardado correctamente para {c_conductor}.")
-                st.balloons()
+                st.success("✅ ¡Registro guardado exitosamente en Google Sheets!")
                 
-        except Exception as error_guardado:
-            st.error(f"❌ No se pudieron escribir los datos en el Excel: {error_guardado}")
-            st.warning("Asegúrese de que el enlace de Google Sheets no haya perdido los permisos públicos de 'Editor'.")
+        except Exception as e:
+            st.error(f"❌ Error al conectar con Google Sheets: {e}")
