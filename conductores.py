@@ -1,5 +1,5 @@
 import streamlit as st
-from st_gsheets_connection import GSheetsConnection  # <--- CORREGIDO PARA QUE ARRANQUE SIN ERRORES
+from streamlit_gsheets_connection import GSheetsConnection  # <--- CAMBIADO A SU NOMBRE REAL COMPLETO
 import pandas as pd
 from datetime import datetime
 
