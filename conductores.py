@@ -1,105 +1,66 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-import datetime
-import os
+from datetime import datetime
 
-# =========================================================================
-# CONFIGURACIÓN DE PÁGINA (Protección contra traducción automática de Chrome)
-# =========================================================================
+# Configuración inicial de la página de Streamlit
 st.set_page_config(
-    page_title="Control de Comisiones",
+    page_title="Control de Comisiones - Transporte",
     page_icon="🚛",
     layout="centered"
 )
 
-# Parche de seguridad: Evita que extensiones de traducción rompan el DOM de la App
-st.markdown(
-    """
-    <style>
-        html, body, [data-testid="stAppViewContainer"] {
-            text-align: left !important;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# =========================================================================
-# GESTIÓN DEL LOGOTIPO CORPORATIVO
-# =========================================================================
-carpeta_actual = os.path.dirname(os.path.abspath(__file__))
-ruta_logo = os.path.join(carpeta_actual, "logo_empresa.png")
-
-if os.path.exists(ruta_logo):
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.image(ruta_logo, use_container_width=True)
-else:
-    st.markdown("<h2 style='text-align: center;'>🚛 CILA FOODS</h2>", unsafe_allow_html=True)
-
-st.markdown("<h3 style='text-align: center;'>Control de Comisiones - Conductores</h3>", unsafe_allow_html=True)
-st.markdown("---")
-
-# =========================================================================
-# ENLACE SEGURO A LA BASE DE DATOS (Google Sheets)
-# =========================================================================
-conexion_establecida = False
-df_base_datos = pd.DataFrame()
-
+# Mostrar logo de la empresa si existe en el directorio
 try:
-    # Inicializa el conector nativo de Streamlit
+    st.image("logo_empresa.png.png", width=200)
+except:
+    pass
+
+st.title("📋 Registro de Comisiones de Conductores")
+st.write("Ingrese los datos del viaje realizado para actualizar la base de datos de forma segura.")
+
+# ---------------------------------------------------------
+# CONEXIÓN DIRECTA A GOOGLE SHEETS
+# ---------------------------------------------------------
+try:
     conn = st.connection("gsheets", type=GSheetsConnection)
-    # Lectura en tiempo real (ttl=0 asegura traer datos frescos siempre)
-    df_base_datos = conn.read(ttl=0)
-    conexion_establecida = True
+    # Leer los datos actuales de la hoja de cálculo
+    df_base_datos = conn.read(ttl="0d")  # ttl="0d" evita que la app guarde datos viejos en caché
 except Exception as e:
-    st.error("❌ Error de Infraestructura: No se pudo sincronizar la base de datos.")
-    st.info(f"Reporte técnico para TI: {e}")
+    st.error(f"❌ Error al conectar con Google Sheets: {e}")
+    st.stop()
 
-# =========================================================================
-# FORMULARIO CRÍTICO DE PRODUCCIÓN
-# =========================================================================
-with st.form("formulario_comisiones_empresa", clear_on_submit=True):
-    st.subheader("📝 Datos Obligatorios del Viaje")
+# ---------------------------------------------------------
+# FORMULARIO DE ENTRADA DE DATOS
+# ---------------------------------------------------------
+with st.form(key="formulario_viaje", clear_on_submit=True):
+    col1, col2 = st.columns(2)
     
-    conductor = st.text_input("Nombre Completo del Conductor")
-    cedula = st.text_input("Número de Cédula de Identidad")
-    destino = st.text_input("Destino de la Ruta")
-    
-    st.markdown("---")
-    st.subheader("📦 Detalles de la Carga")
-    
-    contenedor = st.text_input("Número de Contenedor")
-    zorro = st.text_input("Identificación del Zorro / Remolque")
-    numero_viaje = st.number_input("Número de Viaje", min_value=1, step=1, value=1)
-    
-    boton_enviar = st.form_submit_button("🚀 Enviar Registro de Comisión")
-
-# =========================================================================
-# PROCESAMIENTO Y VALIDACIÓN ANTI-DAÑOS
-# =========================================================================
-if boton_enviar:
-    # Sanitización: Eliminamos espacios accidentales que metan los conductores en el celular
-    c_conductor = conductor.strip().upper()
-    c_cedula = cedula.strip()
-    c_destino = destino.strip().upper()
-    c_contenedor = contenedor.strip().upper()
-    c_zorro = zorro.strip().upper()
-
-    # Validación 1: Campos obligatorios vacíos
-    if not c_conductor or not c_cedula or not c_contenedor:
-        st.error("⚠️ Registro Rechazado: Los campos 'Conductor', 'Cédula' y 'Contenedor' son obligatorios para los indicadores.")
-    
-    # Validación 2: Estado de la red con Google Sheets
-    elif not conexion_establecida:
-        st.error("❌ Error de Red: El registro no pudo ser guardado porque la conexión con el Excel está caída. Intente de nuevo.")
+    with col1:
+        c_conductor = st.text_input("👤 Nombre Completo del Conductor:").strip().upper()
+        c_cedula = st.text_input("🪪 Número de Cédula / Identificación:").strip()
+        c_destino = st.text_input("📍 Destino del Viaje:").strip().upper()
         
+    with col2:
+        c_contenedor = st.text_input("📦 Número de Contenedor:").strip().upper()
+        c_zorro = st.text_input("🦊 Número de Zorro / Chasis:").strip().upper()
+        numero_viaje = st.number_input("🔢 Número de Viaje del Día:", min_value=1, max_value=20, step=1, value=1)
+
+    # Botón de envío del formulario
+    submit_button = st.form_submit_button(label="🚀 Registrar Viaje y Comisión")
+
+# ---------------------------------------------------------
+# VALIDACIÓN Y PROCESAMIENTO DE DATOS
+# ---------------------------------------------------------
+if submit_button:
+    # Validar que los campos obligatorios no estén vacíos
+    if not c_conductor or not c_cedula or not c_destino or not c_contenedor or not c_zorro:
+        st.warning("⚠️ Todos los campos son obligatorios. Por favor, rellene el formulario por completo.")
     else:
         try:
             with st.spinner("Guardando de forma segura en la base de datos corporativa..."):
-                # Marca de tiempo estándar
-                stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                # Generar fecha y hora exacta del registro
+                stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
                 # Crear la nueva fila respetando estrictamente las columnas del Excel
                 nueva_fila = pd.DataFrame([{
