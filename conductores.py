@@ -53,20 +53,20 @@ def conectar_gsheets():
         "https://www.googleapis.com/auth/drive"
     ]
     
-    # Autorización con Google utilizando Service Account
+    # Autorización segura con Google
     creds = Credentials.from_service_account_info(credenciales_dict, scopes=scope)
     cliente = gspread.authorize(creds)
     
-    # Obtiene la URL de la planilla desde tus secretos y abre la primera pestaña (sheet1)
-    url_planilla = st.secrets["connections"]["gsheets"]["spreadsheet"]
-    sheet = cliente.open_by_url(url_planilla).sheet1
+    # SELECCIÓN POR NOMBRE: Abre el archivo por su nombre oficial en tu Drive
+    sheet = cliente.open("Base_Control_Comision_Conductores").sheet1
     return sheet
 
-# Inicializar conexión a la hoja
+# Inicializar conexión a la hoja de cálculo
 try:
     hoja = conectar_gsheets()
 except Exception as e:
     st.error(f"❌ Error crítico de conexión con Google Sheets: {e}")
+    st.info("💡 RECUERDA: Verifica que hayas compartido tu archivo de Google Sheets con el correo virtual ('client_email') que aparece en tus Secrets.")
     st.stop()
 
 # ==========================================
@@ -75,7 +75,6 @@ except Exception as e:
 with st.form(key="form_comisiones", clear_on_submit=True):
     st.subheader("📋 Datos del Viaje")
     
-    # Campos de entrada solicitados
     fecha = st.date_input("Fecha del viaje", value=datetime.today())
     conductor = st.text_input("Nombre completo del Conductor").strip()
     cedula = st.text_input("Número de Cédula (sin puntos ni comas)").strip()
@@ -97,7 +96,7 @@ if boton_guardar:
     else:
         with st.spinner("Subiendo datos a Google Sheets... Por favor espera."):
             try:
-                # Formateamos la fecha a texto legible (Año-Mes-Día)
+                # Formateamos la fecha a texto (Año-Mes-Día)
                 fecha_texto = fecha.strftime("%Y-%m-%d")
                 
                 # Creamos la fila exactamente en el orden de tus columnas (A hasta G)
@@ -111,7 +110,7 @@ if boton_guardar:
                     numero_viaje   # Columna G: NUMERO_VIAJE
                 ]
                 
-                # Inserción directa al final de la tabla en Google Sheets
+                # Inserción directa al final de la tabla
                 hoja.append_row(nueva_fila)
                 
                 st.success(f"✅ ¡Excelente! El viaje N° {numero_viaje} de {conductor} fue registrado con éxito.")
