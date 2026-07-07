@@ -26,9 +26,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🖼️ MUESTRA TU LOGO CORPORATIVO ARRIBA DEL TODO
-# Revisa si el archivo existe en tu carpeta y lo coloca antes del título
-if os.path.exists("logo_empresa.png"):
+# 🖼️ CORRECCIÓN INTELIGENTE PARA EL LOGOTIPO
+# Verifica si el archivo se llama con doble .png o sencillo, y lo muestra
+if os.path.exists("logo_empresa.png.png"):
+    st.image("logo_empresa.png.png", use_container_width=False, width=200)
+elif os.path.exists("logo_empresa.png"):
     st.image("logo_empresa.png", use_container_width=False, width=200)
 
 st.markdown('<div class="main-title">🚚 Registro de Comisiones de Conductores</div>', unsafe_allow_html=True)
