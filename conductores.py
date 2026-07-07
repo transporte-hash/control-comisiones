@@ -13,7 +13,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# Estilo corporativo personalizado
+# Estilo corporativo personalizado (Mantiene tu diseño intacto)
 st.markdown("""
     <style>
     .main-title {
@@ -26,8 +26,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🖼️ COLOCO TU LOGO CORPORATIVO AQUÍ ARRIBA
-# Verifica si el archivo 'logo_empresa.png' existe en la carpeta y lo muestra centrado
+# 🖼️ MUESTRA TU LOGO CORPORATIVO ARRIBA DEL TODO
+# Revisa si el archivo existe en tu carpeta y lo coloca antes del título
 if os.path.exists("logo_empresa.png"):
     st.image("logo_empresa.png", use_container_width=False, width=200)
 
@@ -38,6 +38,7 @@ st.markdown('<div class="main-title">🚚 Registro de Comisiones de Conductores<
 # ==========================================
 @st.cache_resource
 def conectar_gsheets():
+    # Extrae las credenciales seguras de tus Secrets en Streamlit Cloud
     credenciales_dict = st.secrets["connections"]["gsheets"]
     
     scope = [
@@ -45,10 +46,11 @@ def conectar_gsheets():
         "https://www.googleapis.com/auth/drive"
     ]
     
+    # Autorización con la Service Account de Google
     creds = Credentials.from_service_account_info(credenciales_dict, scopes=scope)
     cliente = gspread.authorize(creds)
     
-    # Abre tu archivo oficial por su nombre exacto
+    # Abre tu archivo por su nombre oficial exacto
     sheet = cliente.open("Base_Control_Comision_Conductores").sheet1
     return sheet
 
@@ -73,11 +75,11 @@ with st.form(key="form_comisiones", clear_on_submit=True):
     zorro = st.text_input("Número de Zorro").strip()
     numero_viaje = st.text_input("Número de Viaje").strip()
     
-    # Botón original de envío
+    # Botón original para enviar el formulario
     boton_guardar = st.form_submit_button(label="💾 Guardar Registro")
 
 # ==========================================
-# 4. LÓGICA DE ALMACENAMIENTO (Mantenemos tu guardado exitoso)
+# 4. LÓGICA DE ALMACENAMIENTO EXCEL
 # ==========================================
 if boton_guardar:
     if not conductor or not cedula or not destino or not contenedor or not zorro or not numero_viaje:
@@ -85,8 +87,10 @@ if boton_guardar:
     else:
         with st.spinner("Guardando registro en Google Sheets..."):
             try:
+                # Convierte la fecha seleccionada a texto legible (Año-Mes-Día)
                 fecha_texto = fecha.strftime("%Y-%m-%d")
                 
+                # Estructura ordenada de tus columnas en Excel (De la A hasta la G)
                 nueva_fila = [
                     fecha_texto,   # Columna A: FECHA
                     conductor,     # Columna B: CONDUCTOR
@@ -97,6 +101,7 @@ if boton_guardar:
                     numero_viaje   # Columna G: NUMERO_VIAJE
                 ]
                 
+                # Inserta los datos al final de la hoja de cálculo
                 hoja.append_row(nueva_fila)
                 st.success(f"✅ ¡Excelente! El viaje N° {numero_viaje} de {conductor} fue registrado con éxito.")
                 
